@@ -1,0 +1,23 @@
+---
+title: "p8105_hw3_di2251"
+author: "di2251"
+date: "2026-10-14"
+output: github_document
+---
+
+### Problem 1
+Load NY NOAA data:
+```{r}
+library(p8105.datasets)
+data("ny_noaa")
+```
+
+
+
+### Problem 2
+
+
+
+### Problem 3
+
+
