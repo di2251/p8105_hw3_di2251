@@ -5,19 +5,82 @@ date: "2026-10-14"
 output: github_document
 ---
 
+```{r setup, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(ggridges)
+library(sjlabelled)
+```
+
 ### Problem 1
+
 Load NY NOAA data:
+
 ```{r}
 library(p8105.datasets)
 data("ny_noaa")
+
+view(ny_noaa)
+```
+
+Short description of dataset (size & structure, key variables, missing data, etc.):
+
+**Part A:** 
+Do some data cleaning. Create separate variables for year, month, and day. Ensure observations for temperature, precipitation, and snowfall are given in reasonable units. For snowfall, what are the most commonly observed values? Why?
+
+**Part B:** 
+Make a two-panel plot showing the average max temperature in January and in July in each station across years. Is there any observable / interpretable structure? Any outliers?
+
+**Part C:** 
+Make a two-panel plot showing (i) `tmax` vs `tmin` for the full dataset (note that a scatterplot may not be the best option); and (ii) make a plot showing the distribution of snowfall values greater than 0 and less than 100 separately by year.
+
+### Problem 2
+
+Import NHANES study data and conduct a preliminary clean:
+
+```{r}
+NHANES_accel <- read_csv("data/NHANES accel.csv",    # import raw data
+                         na = c("", "NA", "."))      # unify NA coding
+
+NHANES_demos <- read_csv("data/NHANES demos.csv", 
+                         skip = 4,                   # skip rows without data
+                         na = c("", "NA", ".")) 
+
+view(NHANES_accel)                                   # view preliminary data
+view(NHANES_demos)
+```
+
+Check variable outputs for NHANES demographics:
+```{r}
+NHANES_demos |>
+  count(sex, education)
+```
+
+Create a demographics dataframe and tidy raw data:
+
+```{r}
+NHANES_demos_df = 
+  read_csv("data/NHANES demos.csv", 
+           skip = 4, 
+           na = c("", "NA", ".")) |>
+  janitor::clean_names() |>      # standardize variable name formatting
+  mutate(
+    sex = factor(                # assign factor labels to sex var 
+      sex,
+      levels = c(1, 2),
+      labels = c("male", "female")
+    ),
+    education = factor(          # assign factor labels to education var
+      education,
+      levels = c(1, 2, 3),
+      labels = c("less than high school", "high school equivalent", "more than high school")
+    )
+  ) |>
+  filter("age" >= 21) |>         # exclude participants under 21 years of age
+  drop_na()                      # exclude participants with missing demo data
+
+view(NHANES_demos_df)
 ```
 
 
 
-### Problem 2
-
-
-
 ### Problem 3
-
-
