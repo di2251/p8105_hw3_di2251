@@ -88,8 +88,41 @@ view(NHANES_accel)
 ```
 
 ```{r}
-left_join(NHANES_demos_df, NHANES_accel, by = "seqn")
+NHANES_df = left_join(NHANES_demos_df, NHANES_accel, by = "seqn")
+
+view(NHANES_df)
 ```
+
+```{r}
+NHANES_df |>
+  count(sex, education) |>
+  pivot_wider(
+    names_from = sex,
+    values_from = n
+  ) |>
+  knitr::kable()
+```
+
+```{r}
+NHANES_df = NHANES_df |>
+  mutate(total_activity = rowSums(pick(starts_with("min"))))
+```
+
+```{r}
+NHANES_df |>
+  ggplot(aes(x = age, y = total_activity, color = sex)) +
+  geom_point() +
+  geom_smooth() +
+  labs(
+    title = "Variation in total activity by age and sex",
+    x = "Age (at least 21 years old)", 
+    y = "Total daily activity (MIMS)",
+    color = "Sex",
+    caption = "Data from NHANES"
+  ) +
+  facet_grid(. ~ education)
+```
+
 
 
 ### Problem 3
