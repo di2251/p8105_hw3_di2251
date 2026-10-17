@@ -81,6 +81,15 @@ NHANES_demos_df =
 view(NHANES_demos_df)
 ```
 
+```{r}
+NHANES_accel = janitor::clean_names(NHANES_accel)
+
+view(NHANES_accel)
+```
+
+```{r}
+left_join(NHANES_demos_df, NHANES_accel, by = "seqn")
+```
 
 
 ### Problem 3
