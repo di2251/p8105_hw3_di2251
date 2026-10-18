@@ -14,12 +14,11 @@ library(sjlabelled)
 ### Problem 1
 
 Load NY NOAA data:
-
 ```{r}
 library(p8105.datasets)
 data("ny_noaa")
 
-view(ny_noaa)
+glimpse(ny_noaa)
 ```
 
 Short description of dataset (size & structure, key variables, missing data, etc.):
@@ -35,27 +34,29 @@ Make a two-panel plot showing (i) `tmax` vs `tmin` for the full dataset (note th
 
 ### Problem 2
 
-Import NHANES study data and conduct a preliminary clean:
-```{r}
-NHANES_accel <- read_csv("data/NHANES accel.csv",    # import raw data
-                         na = c("", "NA", "."))      # unify NA coding
+**Part 1: Load, tidy, merge, and organize data sets**
+
+Import NHANES study data and tidy raw data:
+```{r import_p2}
+NHANES_accel <- read_csv("data/NHANES accel.csv",    
+                         na = c("", "NA", "."))      
 
 NHANES_demos <- read_csv("data/NHANES demos.csv", 
-                         skip = 4,                   # skip rows without data
+                         skip = 4,                   
                          na = c("", "NA", ".")) 
 
 glimpse(NHANES_accel)
 glimpse(NHANES_demos)
 ```
 
-Check variable outputs for NHANES demographics:
+Check variable types for NHANES demographic variables:
 ```{r}
 NHANES_demos |>
   count(sex, education)
 ```
 
 Create a demographics dataframe and tidy raw data:
-```{r}
+```{r demo_df}
 NHANES_demos_df = 
   read_csv("data/NHANES demos.csv", 
            skip = 4, 
@@ -79,17 +80,20 @@ NHANES_demos_df =
 glimpse(NHANES_demos_df)
 ```
 
-```{r}
+Clean variable names:
+```{r clean_names}
 NHANES_accel = janitor::clean_names(NHANES_accel)
 
 glimpse(NHANES_accel)
 ```
 
-```{r}
+```{r NHANES_df}
 NHANES_df = left_join(NHANES_demos_df, NHANES_accel, by = "seqn")
 
 glimpse(NHANES_df)
 ```
+
+**Part 2: Table and age distribution plot**
 
 ```{r}
 NHANES_df |>
@@ -107,6 +111,8 @@ NHANES_df = NHANES_df |>
   mutate(total_activity = rowSums(pick(starts_with("min"))))
 ```
 
+**Part 3: Total activity vs. age**
+
 Plot total activities (y-axis) against age (x-axis)
 ```{r}
 NHANES_df |>
@@ -123,6 +129,9 @@ NHANES_df |>
   facet_grid(. ~ education) +
   theme(legend.position = "bottom")
 ```
+
+**Part 4: 24-hour activity time course**
+
 ```{r}
 NHANES_long = NHANES_df |>
   pivot_longer(
@@ -133,6 +142,7 @@ NHANES_long = NHANES_df |>
     names_transform = list(minute = as.numeric)
   )
 ```
+
 
 ```{r}
 NHANES_long |>
@@ -154,8 +164,9 @@ NHANES_long |>
   theme(legend.position = "bottom", panel.spacing = unit(1.2, "lines"))
 ```
 
-
 ### Problem 3
+
+**Part 1: Import, clean, and tidy data sets**
 
 Import NYC Citi Bike data:
 ```{r}
@@ -172,6 +183,7 @@ Jul2024_citi <- read_csv("data/citibike/July 2024 Citi.csv",
                          na = c("", "NA", "."))
 ```
 
+Label:
 ```{r}
 citi_df = 
   bind_rows(
@@ -190,16 +202,82 @@ citi_df =
     month = factor(month, levels = c("January", "July"))
   ) |>
   relocate(year, month)
-```
 
-```{r}
 glimpse(citi_df)
 ```
 
+Label:
+```{r}
+citi_df = citi_df |>
+  mutate(
+    weekdays = factor(weekdays, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")),
+    rideable_type = factor(rideable_type),
+    member_casual = factor(member_casual, levels = c("member", "casual"))
+  )
 
+glimpse(citi_df)
+```
 
+**Part 2: Rides by year, month, and membership**
 
+Create a table for rides by year, month, and membership:
+```{r}
+citi_df |>
+  count(year, month, member_casual) |>
+  pivot_wider(names_from = member_casual, values_from = n) |>
+  knitr::kable(col.names = c("Year", "Month", "Members", "Casual riders"))
+```
 
+**Part 3: Top 5 starting stations, July 2024**
+
+Create a table showing the 5 most popular starting stations for July 2024:
+```{r}
+citi_df |>
+  filter(year == 2024, month == "July") |>
+  count(start_station_name, sort = TRUE, name = "rides") |>
+  slice_head(n = 5) |>
+  knitr::kable(col.names = c("Starting station", "Number of rides"))
+```
+
+**Part 4: Median duration by day, month, and year**
+
+Create a plot on the effects of the day of the week, month, and year on median ride duration:
+```{r}
+citi_df |>
+  group_by(year, month, weekdays) |>
+  summarize(median_duration = median(duration), .groups = "drop") |>
+  ggplot(aes(x = weekdays, y = median_duration, color = month, group = month)) + 
+  geom_point() +
+  geom_line() +
+  facet_grid(. ~ year) + 
+  labs(
+    title = "Median ride duration by day of week week, month, and year",
+    x = "Day of week",
+    y = "Median ride duration (minutes)",
+    color = "Month"
+  ) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom")
+```
+
+**Part 5: 2024 duration distribution by month, membership, and bike type**
+
+Impact of month, membership status, and bike type, on the distribution of ride duration for data in 2024:
+```{r}
+citi_df |>
+  filter(year == 2024) |>
+  ggplot(aes(x = rideable_type, y = duration, fill = member_casual)) +
+  geom_boxplot(outlier.alpha = .1) +
+  scale_y_log10() +
+  facet_grid(. ~ month) + 
+  labs(
+    title = "Ride duration in 2024 by month, membership, and bike type",
+    x = "Bike type",
+    y = "Ride duration (minutes, log scale)",
+    fill = "Rider type"
+  ) +
+  theme(legend.position = "bottom")
+```
 
 
 
