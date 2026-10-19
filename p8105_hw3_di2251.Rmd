@@ -9,10 +9,12 @@ output: github_document
 library(tidyverse)
 library(ggridges)
 library(sjlabelled)
+library(patchwork)
 ```
 
 ### Problem 1
 
+**Part 1:**
 Load NY NOAA data:
 ```{r p1_dataImport, message=FALSE}
 library(p8105.datasets)
@@ -21,7 +23,7 @@ data("ny_noaa")
 glimpse(ny_noaa)
 ```
 
-Description: size, structure, missing
+Retrieve descriptive information (size, structure, missing data, etc.):
 ```{r}
 ny_noaa |>
   summarise(across(everything(), ~ mean(is.na(.)))) |>
@@ -31,7 +33,7 @@ ny_noaa |>
   knitr::kable(digits = 3)
 ```
 
-Cleaning:
+Clean data:
 ```{r}
 noaa_df = 
   ny_noaa |>
@@ -46,6 +48,10 @@ noaa_df =
   relocate(id, date, year, month, day)
 ```
 
+The `ny_noaa` dataset has `r nrow(ny_noaa)` rows and `r ncol(ny_noaa)` columns, with one row per station per day. It covers `r n_distinct(ny_noaa$id)` New York weather stations from `r min(ny_noaa$date)` to `r max(ny_noaa$date)`. Key variables are the station ID (`id`), the date, precipitation (`prcp`), snowfall (`snow`), snow depth (`snwd`), and maximum and minimum temperature (`tmax`, `tmin`).
+
+Missing data is a major issue. 43.7% of `tmax` values and 43.7% of `tmin` values are missing, along with 5.6% of precipitation, 12.7% of snowfall, and 22.8% of snow depth. Many stations appear to record only precipitation and snow, not temperature. 
+
 Most common snowfall values:
 ```{r}
 noaa_df |>
@@ -53,6 +59,11 @@ noaa_df |>
   head(10)
 ```
 
+The most common snowfall value is 0 mm, observed 2,008,508 times, because on most days it does not snow. The next most common values are 25 mm, 13 mm, and 51 mm. 
+
+**Part 2:**
+
+Generate a two-panel plot showing the average max temperature in January and in July in each station across years:
 ```{r}
 noaa_df |>
   filter(month == "January" | month == "July") |>
@@ -70,7 +81,12 @@ noaa_df |>
   )
 ```
 
-```{r}
+Average maximum temperatures are much higher in July than in January. Within each month, stations tend to move together from year to year, which reflects shared regional weather. January averages vary more across years than July averages. 
+
+**Part 3:**
+
+Generate a two-panel plot showing tmax vs tmin for the full dataset and a plot showing the distribution of snowfall values greater than 0 and less than 100 separately by year:
+```{r, warning=FALSE, fig.width=10, fig.height=10}
 tmax_tmin_plot = 
   noaa_df |>
   ggplot(aes(x = tmin, y = tmax)) +
@@ -87,29 +103,22 @@ snow_plot =
   ggplot(aes(x = factor(year), y = snow)) + 
   geom_violin(fill = "lightblue") +
   labs(
-    title = "Snowfall distribution (0-100 mm) by  year",
+    title = "Snowfall distribution (0-100 mm) by year",
     x = "Year",
     y = "Snowfall (mm)" 
   ) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
-tmax_tmin_plot
-snow_plot
+tmax_tmin_plot / snow_plot
 ```
 
+The hex plot shows that `tmax` and `tmin` are strongly positively correlated, with most observations concentrated between 15 and 25 degrees Celsius. 
 
-**Part A:** 
-Do some data cleaning. Create separate variables for year, month, and day. Ensure observations for temperature, precipitation, and snowfall are given in reasonable units. For snowfall, what are the most commonly observed values? Why?
-
-**Part B:** 
-Make a two-panel plot showing the average max temperature in January and in July in each station across years. Is there any observable / interpretable structure? Any outliers?
-
-**Part C:** 
-Make a two-panel plot showing (i) `tmax` vs `tmin` for the full dataset (note that a scatterplot may not be the best option); and (ii) make a plot showing the distribution of snowfall values greater than 0 and less than 100 separately by year.
+Among days with snowfall between 0 and 100 mm, the distribution looks fairly similar across years. Each year shows peaks at the same values, around 25 mm and 51 mm, consistent with the rounding pattern noted above. 
 
 ### Problem 2
 
-**Part 1: Load, tidy, merge, and organize data sets**
+**Part 1:**
 
 Import NHANES study data and tidy raw data:
 ```{r p2_dataImport, message=FALSE}
@@ -168,8 +177,9 @@ NHANES_df = left_join(NHANES_demos_df, NHANES_accel, by = "seqn")
 head(NHANES_df)
 ```
 
-**Part 2: Table and age distribution plot**
+**Part 2:**
 
+Generate table for number of men and women in each education category:
 ```{r}
 NHANES_df |>
   count(sex, education) |>
@@ -177,10 +187,30 @@ NHANES_df |>
     names_from = sex,
     values_from = n
   ) |>
-  knitr::kable()
+  knitr::kable(
+    col.names = c("Education", "Men", "Women"),
+  )
 ```
 
-**Part 3: Total activity vs. age**
+Generate a visualization of age distributions for men and women in each education category:
+```{r}
+NHANES_df |>
+  ggplot(aes(x = education, y = age, fill = sex)) +
+  geom_boxplot() +
+  labs(
+    title = "Age distribution by sex and education",
+    x = "Education",
+    y = "Age (years)",
+    fill = "Sex"
+  ) +
+  theme(legend.position = "bottom")
+```
+
+After excluding participants under 21 and those with missing demographic data, the final dataset includes `r nrow(NHANES_df)` participants. It contains sex, age, BMI, education, and 1,440 minute-level MIMS values for each person.
+
+The numbers of men and women are similar in the "less than high school" group (`r NHANES_df |> count(sex, education) |> pull(n) |> _[1]` men, `r NHANES_df |> count(sex, education) |> pull(n) |> _[4]` women) and the "more than high school group (`r NHANES_df |> count(sex, education) |> pull(n) |> _[3]` men, `r NHANES_df |> count(sex, education) |> pull(n) |> _[6]` women). The "high school equivalent" group has more men (`r NHANES_df |> count(sex, education) |> pull(n) |> _[2]`) than women (`r NHANES_df |> count(sex, education) |> pull(n) |> _[5]`). The "more than high school" group is the largest. 
+
+**Part 3:**
 
 Aggregate across minutes to create a total activity variable:
 ```{r p2_totalActivity}
@@ -205,8 +235,11 @@ NHANES_df |>
   theme(legend.position = "bottom")
 ```
 
-**Part 4: 24-hour activity time course**
+Total daily activity generally declines with age in all three education groups. 
 
+**Part 4:**
+
+Collapse minutes into 24-hour time course:
 ```{r p2_collapsedDF}
 NHANES_long = NHANES_df |>
   pivot_longer(
@@ -218,7 +251,7 @@ NHANES_long = NHANES_df |>
   )
 ```
 
-
+Generate a plot mapping variation in activity by education level:
 ```{r p2_24hrPlot, message=FALSE}
 NHANES_long |>
   ggplot(aes(x = minute, y = mims, color = sex)) +
@@ -239,9 +272,11 @@ NHANES_long |>
   theme(legend.position = "bottom", panel.spacing = unit(1.2, "lines"))
 ```
 
+All three educational groups also follow a similar daily pattern: activity is lowest overnight, rises sharply in the early morning, stays fairly level through the day, and declines in the evening. 
+
 ### Problem 3
 
-**Part 1: Import, clean, and tidy data sets**
+**Part 1:**
 
 Import NYC Citi Bike data:
 ```{r p3_importData, message=FALSE}
@@ -258,7 +293,7 @@ Jul2024_citi <- read_csv("data/citibike/July 2024 Citi.csv",
                          na = c("", "NA", "."))
 ```
 
-Label:
+Label and tidy data:
 ```{r p3_consolidate}
 citi_df = 
   bind_rows(
@@ -281,7 +316,7 @@ citi_df =
 glimpse(citi_df)
 ```
 
-Label:
+Label remaining variables:
 ```{r p3_varTypes}
 citi_df = citi_df |>
   mutate(
@@ -293,7 +328,9 @@ citi_df = citi_df |>
 glimpse(citi_df)
 ```
 
-**Part 2: Rides by year, month, and membership**
+The combined dataset contains `r nrow(citi_df)` rides from January to July of 2020 and 2024. Variables include ride ID, bike type (`rideable_type`), day of the week, ride duration in minutes, starting and ending station, and whether the rider is a member or casual user. 
+
+**Part 2:**
 
 Create a table for rides by year, month, and membership:
 ```{r p3_ridesTable}
@@ -302,6 +339,8 @@ citi_df |>
   pivot_wider(names_from = member_casual, values_from = n) |>
   knitr::kable(col.names = c("Year", "Month", "Members", "Casual riders"))
 ```
+
+The numbers of casual riders and those with memberships have increased in both months across the years. Casual riders make up a larger share in July 2024. 
 
 **Part 3: Top 5 starting stations, July 2024**
 
@@ -313,6 +352,8 @@ citi_df |>
   slice_head(n = 5) |>
   knitr::kable(col.names = c("Starting station", "Number of rides"))
 ```
+
+The most popular starting station in July 2024 was Pier 61 and Chelsea Piers with 163 rides in the sample. 
 
 **Part 4: Median duration by day, month, and year**
 
@@ -335,7 +376,9 @@ citi_df |>
         legend.position = "bottom")
 ```
 
-**Part 5: 2024 duration distribution by month, membership, and bike type**
+The median ride duration graph displays a general trend of longer rides during the weekend. July also generally has longer rides across the week compared to January. The longer 2020 rides may reflect pandemic-era riding, when more trips were recreational rather than commutes. 
+
+**Part 5:**
 
 Impact of month, membership status, and bike type, on the distribution of ride duration for data in 2024:
 ```{r p3_boxplot}
@@ -353,3 +396,5 @@ citi_df |>
   ) +
   theme(legend.position = "bottom")
 ```
+
+Casual rides appear to take longer rides than members for both bike types. Electric bikes are slightly shorter than classic bike rides. Patterns are similar across months, although July rides are longer over all. Ride duration are right-skewed so a long scale was used for the duration axis. 
